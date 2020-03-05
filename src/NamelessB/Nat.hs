@@ -15,35 +15,16 @@
 -- The 'Nat' and 'Fin' types.
 module NamelessB.Nat
   (
-  -- * Exported Items
-  Internal.Nat(..),
-  Internal.Fin(),
-  pattern Internal.FS,
-  pattern Internal.FZ,
-  SNat(..),
-  Internal.finToNatural
+  Internal.Nat(..)
+  , Internal.Fin()
+  , pattern Internal.FS
+  , pattern Internal.FZ
+  , Internal.finToNatural
+  , Internal.SNat
+  , pattern Internal.SZ
+  , pattern Internal.SS
+  , Internal.snatToNatural
+  , Internal.snatToFin
 ) where
 
 import           NamelessB.Nat.Internal as Internal
-
-data SNat (n :: Nat) where
-  SZ :: SNat 'Z
-  SS :: SNat n -> SNat ('S n)
-
-class KnownSNat (n :: Nat) where
-  snat :: SNat n
-
-instance KnownSNat 'Z where
-  snat = SZ
-  {-# INLINE snat #-}
-
-instance KnownSNat n => KnownSNat ('S n) where
-  snat = SS snat
-  {-# INLINE snat #-}
-
-instance Show (SNat n) where
-  showsPrec _ SZ      = showString "SZ"
-  showsPrec i (SS sn) = showParen (i > app_prec) $
-    showString "SS " . showsPrec (app_prec + 1) sn
-    where app_prec = 10
-  {-# INLINABLE showsPrec #-}

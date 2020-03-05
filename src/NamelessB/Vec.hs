@@ -22,7 +22,6 @@ module NamelessB.Vec
 import           Numeric.Natural
 
 import           NamelessB.Nat
-import qualified NamelessB.Nat.Internal as NatInternal
 
 
 
@@ -41,5 +40,5 @@ unsafeIndex (VCons _ VNil) i = error $
   "index '" ++ show i ++ "' out of bounds in 'unsafeIndex'"
 
 index :: Vec t ('S n) -> Fin n -> t
-index (VCons x _) FZ                                      = x
-index (VCons _ xs@(VCons _ _)) (FS (NatInternal.MkFin i)) = unsafeIndex xs i
+index (VCons x _) FZ                   = x
+index (VCons _ xs@(VCons _ _)) (FS fn) = unsafeIndex xs (finToNatural fn)
