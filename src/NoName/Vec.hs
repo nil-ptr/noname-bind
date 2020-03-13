@@ -12,23 +12,26 @@
 -- Portability :  portable
 --
 -- Length indexed lists: 'Vec's.
-module NamelessB.Vec
+module NoName.Vec
   (
-  Vec(..),
-  safeIndex,
-  index
+     Vec(..)
+   , safeIndex
+   , index
+   , (!!)
 ) where
 
 import           Numeric.Natural
+import           Prelude         hiding ((!!))
 
-import           NamelessB.Nat
+import           NoName.Nat
 
 
-
+-- | Length indexed lists.
 data Vec t (n :: Nat) where
   VNil :: Vec t 'Z
   VCons :: t -> Vec t n -> Vec t ('S n)
 
+-- | Treats the 'Fin' as inductively defined. Slower than 'index'.
 safeIndex :: Vec t ('S n) -> Fin n -> t
 safeIndex (VCons x _) FZ       = x
 safeIndex (VCons _ xs) (FS fn) = safeIndex xs fn
@@ -42,3 +45,9 @@ unsafeIndex (VCons _ VNil) i = error $
 index :: Vec t ('S n) -> Fin n -> t
 index (VCons x _) FZ                   = x
 index (VCons _ xs@(VCons _ _)) (FS fn) = unsafeIndex xs (finToNatural fn)
+
+-- | Infix version of 'index'.
+(!!) :: Vec t ('S n) -> Fin n -> t
+(!!) xs fn = index xs fn
+
+infixl 9 !!

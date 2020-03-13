@@ -11,7 +11,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  NamelessB.Nat.Internal
+-- Module      :  NoName.Nat.Internal
 -- Copyright   :  Nils Gustafsson 2020
 -- License     :  Apache-2.0 (see the LICENSE file in the distribution)
 --
@@ -21,7 +21,7 @@
 --
 -- Internals of the 'Fin' type. The functions defined in this module
 -- should be used with great care, as they may subvert invariants.
-module NamelessB.Nat.Internal
+module NoName.Nat.Internal
   (
   -- * Nat
   Nat(..)
@@ -31,12 +31,13 @@ module NamelessB.Nat.Internal
   , pattern FS
   , pattern FZ
   , finToNatural
+  , incrBound
   -- ** True Inductive Fin
   -- Exported for testing
   , TrueFin(..)
   , trueFinToNatural
   , trueFinToFin
-
+  , incrTrueFinBound
   -- * SNat
   -- ** Based on Numeric.Natural
   , SNat(..)
@@ -44,11 +45,13 @@ module NamelessB.Nat.Internal
   , pattern SS
   , snatToNatural
   , snatToFin
+  , KnownSNat(..)
   -- ** True Inductive SNat
   -- Exported for testing
   , TrueSNat(..)
   , trueSNatToNatural
   , trueSNatToSNat
+  , snatToTrueSNat
   , trueSNatToTrueFin
 
 ) where
@@ -56,9 +59,9 @@ module NamelessB.Nat.Internal
 import           Numeric.Natural as N
 import qualified Unsafe.Coerce   as Coerce (unsafeCoerce)
 
--- | Inductively defined naturals. Mainly intended for use at the type level.
+-- | Inductively defined naturals. Mainly intended for use at the type
+-- level.
 data Nat = Z | S Nat
-
 
 ----------------------------------------------------------------------
 ---                          The Fin Type                          ---
@@ -115,6 +118,9 @@ pattern FS x <- (matchFS -> Just (MkFinView x))
 
 {-# COMPLETE FS, FZ #-}
 
+incrBound :: Fin n -> Fin ('S n)
+incrBound (MkFin x) = MkFin x
+
 -- | This instance is a lie. It will pretend that 'FZ' and 'FS' are
 -- actual constructors rather than pattern synonyms.
 instance Show (Fin n) where
@@ -145,6 +151,15 @@ instance Show (TrueFin n) where
 trueFinToFin :: TrueFin n -> Fin n
 trueFinToFin TrueFZ       = FZ
 trueFinToFin (TrueFS tfn) = FS (trueFinToFin tfn)
+{-# INLINABLE trueFinToFin #-}
+
+incrTrueFinBound :: TrueFin n -> TrueFin ('S n)
+incrTrueFinBound TrueFZ      = TrueFZ
+incrTrueFinBound (TrueFS fn) = TrueFS (incrTrueFinBound fn)
+{-# INLINABLE incrTrueFinBound #-}
+
+-- § ────────── ────────── ────────── ────────── ────────── --
+
 
 ----------------------------------------------------------------------
 ---                          The SNat Type                         ---
@@ -152,6 +167,10 @@ trueFinToFin (TrueFS tfn) = FS (trueFinToFin tfn)
 
 newtype SNat (n :: Nat) = MkSNat Natural
 type role SNat nominal
+
+instance Eq (SNat n) where
+  (MkSNat x) == (MkSNat y) = x == y
+  {-# INLINE (==) #-}
 
 data SNatSSView (m :: Nat) (n :: Nat) where
    MkSNatSSView :: (m ~ 'S n) => !(SNat n) -> SNatSSView m n
@@ -216,14 +235,17 @@ data TrueSNat (n :: Nat) where
   TrueSZ :: TrueSNat 'Z
   TrueSS :: !(TrueSNat n) -> TrueSNat ('S n)
 
+instance Eq (TrueSNat n) where
+  TrueSZ == TrueSZ = True
+  (TrueSS sx) == (TrueSS sy) = sx == sy
+
 trueSNatToNatural :: TrueSNat n -> Natural
 trueSNatToNatural TrueSZ     = 0
 trueSNatToNatural (TrueSS n) = 1 + trueSNatToNatural n
+{-# INLINABLE trueSNatToNatural #-}
 
-instance Show (TrueSNat 'Z) where
+instance Show (TrueSNat n) where
   showsPrec _ TrueSZ = showString "TrueSZ"
-
-instance (Show (TrueSNat n)) => Show (TrueSNat ('S n)) where
   showsPrec i (TrueSS sn) = showParen (i > app_prec) $
     showString "TrueSS " . showsPrec (app_prec + 1) sn
     where app_prec = 10
@@ -231,7 +253,30 @@ instance (Show (TrueSNat n)) => Show (TrueSNat ('S n)) where
 trueSNatToSNat :: TrueSNat n -> SNat n
 trueSNatToSNat TrueSZ       = SZ
 trueSNatToSNat (TrueSS tsn) = SS (trueSNatToSNat tsn)
+{-# INLINABLE trueSNatToSNat #-}
+
+snatToTrueSNat :: SNat n -> TrueSNat n
+snatToTrueSNat SZ      = TrueSZ
+snatToTrueSNat (SS sn) = TrueSS (snatToTrueSNat sn)
+{-# INLINABLE snatToTrueSNat #-}
 
 trueSNatToTrueFin :: TrueSNat n -> TrueFin n
 trueSNatToTrueFin TrueSZ       = TrueFZ
 trueSNatToTrueFin (TrueSS tsn) = TrueFS (trueSNatToTrueFin tsn)
+{-# INLINABLE trueSNatToTrueFin #-}
+
+----------------------------------------------------------------------
+---                           Known SNat                           ---
+----------------------------------------------------------------------
+
+class KnownSNat (n :: Nat) where
+  snat :: SNat n
+  trueSNat :: TrueSNat n
+
+instance KnownSNat 'Z where
+  snat = SZ
+  trueSNat = TrueSZ
+
+instance KnownSNat n => KnownSNat ('S n) where
+  snat = SS snat
+  trueSNat = TrueSS trueSNat
