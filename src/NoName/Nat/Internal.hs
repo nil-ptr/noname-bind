@@ -53,6 +53,7 @@ module NoName.Nat.Internal
   , trueSNatToSNat
   , snatToTrueSNat
   , trueSNatToTrueFin
+  , KnownTrueSNat(..)
 
 ) where
 
@@ -118,8 +119,20 @@ pattern FS x <- (matchFS -> Just (MkFinView x))
 
 {-# COMPLETE FS, FZ #-}
 
+-- | Increments the bound of a 'Fin' without altering its value.
 incrBound :: Fin n -> Fin ('S n)
 incrBound (MkFin x) = MkFin x
+{-# INLINE incrBound #-}
+
+--- instances --------------------------------------------------------
+
+instance Eq (Fin n) where
+  (MkFin x) == (MkFin y) = x == y
+  {-# INLINE (==) #-}
+
+instance Ord (Fin n) where
+  (MkFin x) <= (MkFin y) = x <= y
+  {-# INLINE (<=) #-}
 
 -- | This instance is a lie. It will pretend that 'FZ' and 'FS' are
 -- actual constructors rather than pattern synonyms.
@@ -130,7 +143,9 @@ instance Show (Fin n) where
     where app_prec = 10
   {-# INLINABLE showsPrec #-}
 
---- TrueFin ----------------------------------------------------------
+----------------------------------------------------------------------
+---                             TrueFin                            ---
+----------------------------------------------------------------------
 
 data TrueFin (n :: Nat) where
   TrueFZ :: TrueFin n
@@ -141,6 +156,32 @@ trueFinToNatural TrueFZ      = 0
 trueFinToNatural (TrueFS fn) = 1 + trueFinToNatural fn
 {-# INLINABLE trueFinToNatural #-}
 
+trueFinToFin :: TrueFin n -> Fin n
+trueFinToFin TrueFZ       = FZ
+trueFinToFin (TrueFS tfn) = FS (trueFinToFin tfn)
+{-# INLINABLE trueFinToFin #-}
+
+-- | Increments a 'TrueFin' without altering its value.
+incrTrueFinBound :: TrueFin n -> TrueFin ('S n)
+incrTrueFinBound TrueFZ      = TrueFZ
+incrTrueFinBound (TrueFS fn) = TrueFS (incrTrueFinBound fn)
+{-# INLINABLE incrTrueFinBound #-}
+
+--- instances --------------------------------------------------------
+
+instance Eq (TrueFin n) where
+  TrueFZ      == TrueFZ       = True
+  (TrueFS fx) == (TrueFS fy)  = fx == fy
+  TrueFZ      == (TrueFS _)   = False
+  (TrueFS _)  == TrueFZ       = False
+  {-# INLINE (==) #-}
+
+instance Ord (TrueFin n) where
+  TrueFZ      <= _            = True
+  (TrueFS fx) <= (TrueFS fy)  = fx <= fy
+  (TrueFS _)  <= TrueFZ       = False
+  {-# INLINE (<=) #-}
+
 instance Show (TrueFin n) where
   showsPrec _ TrueFZ = showString "TrueFZ"
   showsPrec i (TrueFS fn) = showParen (i > app_prec) $
@@ -148,15 +189,6 @@ instance Show (TrueFin n) where
     where app_prec = 10
   {-# INLINABLE showsPrec #-}
 
-trueFinToFin :: TrueFin n -> Fin n
-trueFinToFin TrueFZ       = FZ
-trueFinToFin (TrueFS tfn) = FS (trueFinToFin tfn)
-{-# INLINABLE trueFinToFin #-}
-
-incrTrueFinBound :: TrueFin n -> TrueFin ('S n)
-incrTrueFinBound TrueFZ      = TrueFZ
-incrTrueFinBound (TrueFS fn) = TrueFS (incrTrueFinBound fn)
-{-# INLINABLE incrTrueFinBound #-}
 
 -- § ────────── ────────── ────────── ────────── ────────── --
 
@@ -167,10 +199,6 @@ incrTrueFinBound (TrueFS fn) = TrueFS (incrTrueFinBound fn)
 
 newtype SNat (n :: Nat) = MkSNat Natural
 type role SNat nominal
-
-instance Eq (SNat n) where
-  (MkSNat x) == (MkSNat y) = x == y
-  {-# INLINE (==) #-}
 
 data SNatSSView (m :: Nat) (n :: Nat) where
    MkSNatSSView :: (m ~ 'S n) => !(SNat n) -> SNatSSView m n
@@ -183,11 +211,12 @@ evilMkSNatSSView :: SNat n -> SNatSSView m n
 evilMkSNatSSView x = evilSpoofSNatSSView (MkSNatSSView x)
 {-# INLINE evilMkSNatSSView #-}
 
+
+-- | Equivalent to 'matchFS' for 'SNat'.
 matchSS :: SNat m -> Maybe (SNatSSView m n)
 matchSS (MkSNat 0) = Nothing
 matchSS (MkSNat x) = Just (evilMkSNatSSView $ MkSNat (x - 1))
 {-# INLINABLE matchSS #-}
-
 
 data SNatSZView (n :: Nat) where
   MkSNatSZView :: (n ~ 'Z) => SNatSZView n
@@ -200,12 +229,17 @@ evilMkSNatSZView :: SNatSZView n
 evilMkSNatSZView = evilSpoofSNatSZView MkSNatSZView
 {-# INLINE evilMkSNatSZView #-}
 
+-- | 'SNat', unlike 'Fin' needs a version of 'matchFS' for its
+-- \"zero\" constructor.
 matchSZ :: SNat n -> Maybe (SNatSZView n)
 matchSZ (MkSNat 0) = Just evilMkSNatSZView
 matchSZ _          = Nothing
+{-# INLINABLE matchSZ #-}
 
+-- | This is @O(1)@.
 snatToNatural :: SNat n -> Natural
 snatToNatural (MkSNat x) = x
+{-# INLINE snatToNatural #-}
 
 pattern SZ :: () => (n ~ 'Z) =>  SNat n
 pattern SZ <- (matchSZ -> Just (MkSNatSZView))
@@ -217,10 +251,16 @@ pattern SS x <- (matchSS -> Just (MkSNatSSView x))
 
 {-# COMPLETE SZ, SS #-}
 
+-- | This is @O(1)@
 snatToFin :: SNat n -> Fin n
 snatToFin (MkSNat x) = MkFin x
 {-# INLINE snatToFin #-}
 
+--- instances --------------------------------------------------------
+
+instance Eq (SNat n) where
+  (MkSNat x) == (MkSNat y) = x == y
+  {-# INLINE (==) #-}
 
 instance Show (SNat n) where
   showsPrec _ SZ = showString "SZ"
@@ -229,26 +269,18 @@ instance Show (SNat n) where
     where app_prec = 10
   {-# INLINABLE showsPrec #-}
 
---- True SNat --------------------------------------------------------
+----------------------------------------------------------------------
+---                            TrueSNat                            ---
+----------------------------------------------------------------------
 
 data TrueSNat (n :: Nat) where
   TrueSZ :: TrueSNat 'Z
   TrueSS :: !(TrueSNat n) -> TrueSNat ('S n)
 
-instance Eq (TrueSNat n) where
-  TrueSZ == TrueSZ = True
-  (TrueSS sx) == (TrueSS sy) = sx == sy
-
 trueSNatToNatural :: TrueSNat n -> Natural
 trueSNatToNatural TrueSZ     = 0
 trueSNatToNatural (TrueSS n) = 1 + trueSNatToNatural n
 {-# INLINABLE trueSNatToNatural #-}
-
-instance Show (TrueSNat n) where
-  showsPrec _ TrueSZ = showString "TrueSZ"
-  showsPrec i (TrueSS sn) = showParen (i > app_prec) $
-    showString "TrueSS " . showsPrec (app_prec + 1) sn
-    where app_prec = 10
 
 trueSNatToSNat :: TrueSNat n -> SNat n
 trueSNatToSNat TrueSZ       = SZ
@@ -265,18 +297,42 @@ trueSNatToTrueFin TrueSZ       = TrueFZ
 trueSNatToTrueFin (TrueSS tsn) = TrueFS (trueSNatToTrueFin tsn)
 {-# INLINABLE trueSNatToTrueFin #-}
 
+--- instances --------------------------------------------------------
+
+instance Eq (TrueSNat n) where
+  TrueSZ == TrueSZ = True
+  (TrueSS sx) == (TrueSS sy) = sx == sy
+  {-# INLINE (==) #-}
+
+instance Show (TrueSNat n) where
+  showsPrec _ TrueSZ = showString "TrueSZ"
+  showsPrec i (TrueSS sn) = showParen (i > app_prec) $
+    showString "TrueSS " . showsPrec (app_prec + 1) sn
+    where app_prec = 10
+  {-# INLINABLE showsPrec #-}
+
 ----------------------------------------------------------------------
 ---                           Known SNat                           ---
 ----------------------------------------------------------------------
 
 class KnownSNat (n :: Nat) where
   snat :: SNat n
-  trueSNat :: TrueSNat n
 
 instance KnownSNat 'Z where
   snat = SZ
-  trueSNat = TrueSZ
+  {-# INLINE snat #-}
 
 instance KnownSNat n => KnownSNat ('S n) where
   snat = SS snat
+  {-# INLINE snat #-}
+
+class KnownSNat n => KnownTrueSNat n where
+  trueSNat :: TrueSNat n
+
+instance KnownTrueSNat 'Z where
+  trueSNat = TrueSZ
+  {-# INLINE trueSNat #-}
+
+instance KnownTrueSNat n => KnownTrueSNat ('S n) where
   trueSNat = TrueSS trueSNat
+  {-# INLINE trueSNat #-}

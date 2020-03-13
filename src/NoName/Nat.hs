@@ -1,10 +1,14 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
+
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  NoName.Nat
@@ -32,9 +36,8 @@ module NoName.Nat
   , buildForSomeNat
 ) where
 
-import           Numeric.Natural
-
 import           NoName.Nat.Internal as Internal
+import           Numeric.Natural
 
 -- | A polykinded existential wrapper for 'Internal.Nat' indexed types
 -- (kinds).

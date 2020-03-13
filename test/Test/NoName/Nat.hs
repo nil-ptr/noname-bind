@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds       #-}
 {-# LANGUAGE GADTs           #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns    #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Test.NoName.Nat
@@ -47,6 +48,13 @@ pattern SomeSNat x <- MkForSomeNat x
 pattern SomeTrueSNat :: NI.TrueSNat n -> ForSomeNat NI.TrueSNat
 pattern SomeTrueSNat x <- MkForSomeNat x
 
+pattern SomeTrueFin :: NI.TrueFin n -> ForSomeNat NI.TrueFin
+pattern SomeTrueFin x <- MkForSomeNat x
+
+-- | Turn an 'Integer' into a 'Natural' by negating, if needed.
+integerAsNatural :: Integer -> Natural
+integerAsNatural i | i < 0 = fromInteger (negate i)
+                   | otherwise = fromInteger i
 
 ----------------------------------------------------------------------
 ---                              Tests                             ---
@@ -67,8 +75,51 @@ snatSpec = describe "NoName.Nat.SNat" $ do
     property $ \(SomeTrueSNat x) ->
                  x === (NI.snatToTrueSNat . NI.trueSNatToSNat) x
 
+  it "should be possible to convert an SNat to the corresponding Natural"  $
+    property $ \(integerAsNatural -> x) ->
+                case buildForSomeNat x SZ SS of
+                  MkForSomeNat y -> x === NI.snatToNatural y
+
+  describe "when converting to Natural" $ do
+    it "should produce the same Natural if converted to TrueSNat in between" $
+      property $ \(integerAsNatural -> x) ->
+                   case buildForSomeNat x SZ SS of
+                     MkForSomeNat y ->
+                       NI.snatToNatural y
+                       ===
+                       (NI.trueSNatToNatural . NI.snatToTrueSNat) y
+    it "should be possible to roundtrip via TrueSNat and get the same result" $
+      property $ \(integerAsNatural -> x) ->
+                   case buildForSomeNat x SZ SS of
+                     MkForSomeNat y ->
+                       NI.snatToNatural y
+                       ===
+                       (NI.snatToNatural
+                        . NI.trueSNatToSNat
+                        . NI.snatToTrueSNat) y
+
 finSpec :: Spec
 finSpec = describe "NoName.Nat.Fin" $ do
   it "should never exceed its typelevel bound" $
     property $ \x ->
                  (finToNatural :: Fin Ten -> Natural) x <= 10
+
+  it "should never exceed the SNat with the same bound" $
+    property $ \(SomeSNat x) ->
+                 forAll (genFin x) $ \fn ->
+                   finToNatural fn <= snatToNatural x
+
+  let finToTrueFin :: Fin n -> NI.TrueFin n
+      finToTrueFin FZ      = NI.TrueFZ
+      finToTrueFin (FS fn) = NI.TrueFS (finToTrueFin fn)
+
+  it "should be possible to roundtrip Fin -> TrueFin -> Fin" $
+    property $ \(SomeSNat x) ->
+                 forAll (genFin x) $ \fn ->
+                   fn === (NI.trueFinToFin . finToTrueFin) fn
+
+  it "should be possible to roundtrip TrueFin -> Fin -> TrueFin" $
+    property $ \(integerAsNatural -> x) ->
+                 forAll (genBuildable NI.TrueFZ NI.TrueFS x) $
+                 \(SomeTrueFin fn) ->
+                   fn === (finToTrueFin . NI.trueFinToFin) fn

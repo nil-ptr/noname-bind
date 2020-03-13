@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 -----------------------------------------------------------------------------
@@ -34,16 +35,26 @@ toNatural i = fromInteger @Natural $
   then negate i
   else i
 
+genBuildable :: (t z)
+             -> (forall k. t k -> t ('S k))
+             -> Natural
+             -> Gen (ForSomeNat t)
+genBuildable z s i = do
+  x <- toNatural <$> choose (0, fromIntegral i)
+  pure $ buildForSomeNat x z s
 
 ----------------------------------------------------------------------
 ---                               Fin                              ---
 ----------------------------------------------------------------------
 
 
+genFin :: SNat n -> Gen (Fin n)
+genFin sn = let limit = fromIntegral . snatToNatural $ sn
+                rng = choose @Integer (0,limit)
+            in (NI.MkFin . fromIntegral) <$> rng
+
 instance NI.KnownSNat n => Arbitrary (Fin n) where
-  arbitrary = let x = fromIntegral . snatToNatural $ NI.snat @ n
-                  rng = choose @Integer (0,x)
-              in (NI.MkFin . fromIntegral) <$> rng
+  arbitrary = genFin (NI.snat @n)
 
 instance Arbitrary (NI.TrueFin 'Z) where
   arbitrary = pure NI.TrueFZ
@@ -67,6 +78,4 @@ instance Arbitrary (ForSomeNat SNat) where
     pure (MkForSomeNat . NI.MkSNat . toNatural $ x)
 
 instance Arbitrary (ForSomeNat NI.TrueSNat) where
-  arbitrary = do
-    x <- arbitrary
-    pure $ buildForSomeNat (toNatural x) NI.TrueSZ NI.TrueSS
+  arbitrary = arbitrary >>= genBuildable NI.TrueSZ NI.TrueSS . toNatural
