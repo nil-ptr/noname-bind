@@ -1,3 +1,4 @@
 packages: .
+          sigs/noname-str-string
 package noname-bind
         tests: true

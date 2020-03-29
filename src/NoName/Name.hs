@@ -15,39 +15,42 @@
 -- Names.
 module NoName.Name
   (
-  -- * Exported Items
+    Name(),
+    AnyName()
 
 ) where
 
 import           NoName.Nat
+import           NoName.Str
 
 import           Data.Type.Equality
 import           Numeric.Natural
+
 import           Type.Reflection
 
-data Name s a (n :: Nat) where
+data Name a (n :: Nat) where
   BoundName :: !Natural -- ^ Index within binder (relevant for telescopes)
             -> !(Fin n) -- ^ de Brujin index
-            -> Name s a ('S n)
+            -> Name a ('S n)
   FreeName  :: !Natural -- ^ Globally unique identifier.
-            -> !s -> Name s a n
+            -> !Str -> Name a n
   deriving (Typeable)
 
-deriving instance Eq s => Eq (Name s a n)
-deriving instance Ord s => Ord (Name s a n)
+deriving instance Eq (Name a n)
+deriving instance Ord (Name a n)
 
 
-data AnyName s where
-  MkAnyName :: (Typeable a, Typeable n) => Name s a n -> AnyName s
+data AnyName where
+  MkAnyName :: (Typeable a, Typeable n) => Name a n -> AnyName
   deriving (Typeable)
 
-instance (Eq s, Typeable s) => Eq (AnyName s) where
+instance Eq AnyName where
   (MkAnyName an1) == (MkAnyName an2) =
     case testEquality (typeOf an1) (typeOf an2) of
       Just Refl -> True
       _         -> False
 
-instance (Ord s, Typeable s) => Ord (AnyName s) where
+instance Ord AnyName where
   compare (MkAnyName an1) (MkAnyName an2) =
     let t1 = typeOf an1
         t2 = typeOf an2
