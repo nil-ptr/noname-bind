@@ -20,8 +20,7 @@ library
   hs-source-dirs:      src
 
   -- other-extensions:
-  build-depends:       base >=4.13 && <5
-                     , noname-str-string
+  build-depends:       base >=4.13 && <5, text
   -- hs-source-dirs:
   default-language:    Haskell2010
   exposed-modules:     NoName.Nat,
@@ -29,7 +28,7 @@ library
                        NoName.Vec,
                        NoName.Name
   ghc-options:         -Wall -O2
-  signatures:          NoName.Str
+
 
 test-suite noname-bind-test
   type:                exitcode-stdio-1.0
@@ -39,11 +38,9 @@ test-suite noname-bind-test
   other-modules:       Test.NoName.Nat,
                        Test.NoName.Nat.Orphans
 
-  mixins:              noname-str-string (Str as NoName.Str)
-
   build-depends:       base >= 4.13 && <5,
                        hspec,
                        QuickCheck,
                        noname-bind,
-                       noname-str-string
+
   ghc-options:         -Wall

@@ -15,30 +15,37 @@
 -- Names.
 module NoName.Name
   (
-    Name(),
-    AnyName()
-
+    Name()
+  , AnyName()
+  , strToName
 ) where
 
 import           NoName.Nat
-import           NoName.Str
 
+import           Data.Text          (Text)
 import           Data.Type.Equality
 import           Numeric.Natural
-
 import           Type.Reflection
+
+
+----------------------------------------------------------------------
+---                          The Name Type                         ---
+----------------------------------------------------------------------
+
 
 data Name a (n :: Nat) where
   BoundName :: !Natural -- ^ Index within binder (relevant for telescopes)
             -> !(Fin n) -- ^ de Brujin index
             -> Name a ('S n)
   FreeName  :: !Natural -- ^ Globally unique identifier.
-            -> !Str -> Name a n
+            -> !Text -> Name a n
   deriving (Typeable)
 
 deriving instance Eq (Name a n)
 deriving instance Ord (Name a n)
 
+
+--- Existentials for Names -------------------------------------------
 
 data AnyName where
   MkAnyName :: (Typeable a, Typeable n) => Name a n -> AnyName
@@ -60,3 +67,10 @@ instance Ord AnyName where
       Just Refl -> compare an1 an2
       -- Different types => compare as SomeTypeRep
       _         -> compare (SomeTypeRep t1) (SomeTypeRep t2)
+
+----------------------------------------------------------------------
+---                        Name Manipulation                       ---
+----------------------------------------------------------------------
+
+strToName :: Text -> Name a n
+strToName s = FreeName 0 s
