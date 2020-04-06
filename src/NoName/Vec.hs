@@ -1,6 +1,7 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE GADTs          #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  NamlessB.Vec
@@ -21,10 +22,14 @@ module NoName.Vec
 ) where
 
 import           Numeric.Natural
-import           Prelude         hiding ((!!))
+import           Prelude             hiding ((!!))
 
 import           NoName.Nat
+import qualified NoName.Nat.Internal as UnsafeNat
 
+----------------------------------------------------------------------
+---                          The Vec Type                          ---
+----------------------------------------------------------------------
 
 -- | Length indexed lists.
 data Vec t (n :: Nat) where
@@ -51,3 +56,19 @@ index (VCons _ xs@(VCons _ _)) (FS fn) = unsafeIndex xs (finToNatural fn)
 (!!) xs fn = index xs fn
 
 infixl 9 !!
+
+length :: Vec t m -> SNat m
+length VNil         = SZ
+length (VCons _ xs) = SS (NoName.Vec.length xs)
+
+findFirstIndex :: forall t n.
+                  (t -> Bool)
+               -> Vec t ('S n)
+               -> Maybe (t, Fin ('S n))
+findFirstIndex p v = go 0 v
+  where go :: forall m.  Natural -> Vec t ('S m) -> Maybe (t , Fin ('S n))
+        go i (VCons x xs) = if p x
+                              then Just (x, UnsafeNat.MkFin i)
+                              else case xs of
+                                     VNil        -> Nothing
+                                     (VCons _ _) -> go (i+1) xs

@@ -7,6 +7,8 @@
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 
 -----------------------------------------------------------------------------
@@ -23,10 +25,12 @@
 module NoName.Nat
   (
   Internal.Nat(..)
+  , NatPlus
   , Internal.Fin()
   , pattern Internal.FS
   , pattern Internal.FZ
   , Internal.finToNatural
+  , Internal.incrBound
   , Internal.SNat
   , pattern Internal.SZ
   , pattern Internal.SS
@@ -66,3 +70,30 @@ buildForSomeNat i zero successor =
   case buildForSomeNat (i - 1) zero successor of
     MkForSomeNat x -> MkForSomeNat (successor x)
 {-# INLINABLE buildForSomeNat #-}
+
+
+type family NatPlus (m :: Nat) (n :: Nat) :: Nat where
+  NatPlus ('S m) x = NatPlus m ('S x)
+  NatPlus 'Z x = x
+
+class Succ (t :: Nat -> *) where
+  succ :: t n -> t ('S n)
+
+instance Succ SNat where
+  succ = SS
+  {-# INLINE succ #-}
+
+instance Succ Fin where
+  succ = FS
+  {-# INLINE succ #-}
+
+class Pred (t :: Nat -> *) where
+  pred :: t ('S n) -> t n
+
+instance Pred SNat where
+  pred (SS sn) = sn
+  {-# INLINE pred #-}
+
+instance Pred Fin where
+  pred (Internal.MkFin x) = Internal.MkFin (x-1)
+  {-# INLINE pred #-}
