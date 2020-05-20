@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
@@ -8,6 +9,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
 
@@ -25,6 +27,7 @@
 module NoName.Nat
   (
   Internal.Nat(..)
+  , absurdZeroNotSucc
   , NatPlus
   , Internal.Fin()
   , pattern Internal.FS
@@ -40,8 +43,17 @@ module NoName.Nat
   , buildForSomeNat
 ) where
 
+import           Data.Type.Equality
+import           Data.Void
 import           NoName.Nat.Internal as Internal
 import           Numeric.Natural
+
+----------------------------------------------------------------------
+---                          Nat Equality                          ---
+----------------------------------------------------------------------
+
+absurdZeroNotSucc :: ('Z :~: 'S n) -> Void
+absurdZeroNotSucc x = case x of {}
 
 -- | A polykinded existential wrapper for 'Internal.Nat' indexed types
 -- (kinds).
@@ -75,25 +87,3 @@ buildForSomeNat i zero successor =
 type family NatPlus (m :: Nat) (n :: Nat) :: Nat where
   NatPlus ('S m) x = NatPlus m ('S x)
   NatPlus 'Z x = x
-
-class Succ (t :: Nat -> *) where
-  succ :: t n -> t ('S n)
-
-instance Succ SNat where
-  succ = SS
-  {-# INLINE succ #-}
-
-instance Succ Fin where
-  succ = FS
-  {-# INLINE succ #-}
-
-class Pred (t :: Nat -> *) where
-  pred :: t ('S n) -> t n
-
-instance Pred SNat where
-  pred (SS sn) = sn
-  {-# INLINE pred #-}
-
-instance Pred Fin where
-  pred (Internal.MkFin x) = Internal.MkFin (x-1)
-  {-# INLINE pred #-}
